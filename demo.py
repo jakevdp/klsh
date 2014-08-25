@@ -7,13 +7,13 @@ data = load_iris()
 X = data.data
 y = data.target
 
-Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=0.2)
+Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=0.1,
+                                                random_state=42)
 
 
-klsh = KernelLSH(Xtrain, nbits=8, kernel='rbf')
-print klsh.hash_table_
+klsh = KernelLSH(Xtrain, nbits=8, kernel='rbf', random_state=42)
 
 
-for i in range(len(Xtest)):
-    nbrs = klsh.query(Xtest[i])
+print "Labels on results for 8-bit hash bins of iris data:"
+for i, nbrs in enumerate(klsh.query(Xtest)):
     print ytest[i], ytrain[nbrs]

@@ -5,7 +5,6 @@ from sklearn.utils import check_random_state
 from sklearn.metrics import pairwise, pairwise_kernels
 
 
-
 class KernelLSH(object):
     """
     Kernelized Locality Sensitive Hashing
@@ -33,10 +32,9 @@ class KernelLSH(object):
     This follows the algorithm in Kulis & Grauman (2009)
     """
     def __init__(self, sample, nbits=10, kernel="linear",
-                 subspace_size=300, t=None,
-                 random_state=None, ):
+                 subspace_size=300, t=None, random_state=None):
         if t is None:
-            t = min(n_subspace // 4, 30)
+            t = min(subspace_size // 4, 30)
 
         self.rng = check_random_state(random_state)
 
@@ -85,14 +83,14 @@ class KernelLSH(object):
         e_s[i, np.arange(nbits)] = 1
         self.w_ = np.dot(K_half, e_s)
 
-        self.hash_table_ = self._compute_hash(self.sample_)
+        self.hash_table_ = self.compute_hash(self.sample_)
 
         # build hash dictionary
         self.hash_dict_ = collections.defaultdict(list)
         for i, h in enumerate(self.hash_table_):
             self.hash_dict_[h].append(i)
         
-    def _compute_hash(self, X):
+    def compute_hash(self, X):
         X = np.atleast_2d(X)
         K = self._kernel_matrix(X)
         bits = (np.dot(K, self.w_) > 0)
@@ -100,7 +98,6 @@ class KernelLSH(object):
         return np.dot(bits, vals)
         return self._hash_from_kernel(kappa)    
     
-    def query(self, x):
-        x = np.asarray(x)
-        assert x.ndim == 1
-        return self.hash_dict_[self._compute_hash(x)[0]]
+    def query(self, X):
+        xhash = self.compute_hash(X)
+        return [self.hash_dict_[h] for h in xhash]
