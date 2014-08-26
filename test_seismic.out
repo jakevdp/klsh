@@ -1,0 +1,12 @@
+Shape of data: N=1000, D=100
+Creating hash table over data (this can be slow, O[N D logD]):
+   Finished in 4.64979 sec
+
+Querying neighbors of first few points (this is fast; O[D logD] per query):
+   Finished in 0.041477 sec
+
+0 [  0   1 435 536 790]
+1 [  1   0 891 435 524]
+2 [  2 686 866 472 141]
+3 [  3 400 731 969 411]
+4 [  4 540 958 851 543]

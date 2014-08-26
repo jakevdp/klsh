@@ -1,10 +1,49 @@
+"""
+Here's what it might look like to use Kernelized LSH on seismic data.
+
+We'll use some fake data for the time being.
+
+Here the hash table is a (potentially) expensive computation done once, and
+the querying is a very quick operation that can be done multiple times.
+
+The hash function based on the cross-correlation kernel computation on my
+CPU takes on order 0.5*(D/1000) seconds per hash, where D is the length of
+the time series.
+
+This means that to compute the hash for N entries will take about
+0.5 * N * (D/1000) seconds... for N=10000, D=1000, this is between 1 and 2
+hours on a single CPU: note that this is a trivially parallelizable operation,
+so it could be scaled relatively easily.
+
+Once the hash table is complete, queries run very quickly because they use
+hashes (i.e. O[1]: query time is roughly constant no matter how big the
+hash table is). This is what makes LSH amazing: at query time, it doesn't
+matter how much data you have!
+
+The query will return approximate nearest neighbors in the parameter space
+defined by the cross-correlation kernel.
+"""
+from __future__ import print_function
+
 import numpy as np
 from scipy import ndimage, fftpack, signal
 
 from klsh import KernelLSH
 from klsh.kernels import crosscorr_kernel
 
+#------------------------------------------------------------
+# This is a nice little utility routine to time some code
+from contextlib import contextmanager
+from time import time
+@contextmanager
+def timeit():
+    t0 = time()
+    yield
+    print("   Finished in {0:2g} sec".format(time() - t0))
 
+
+#------------------------------------------------------------
+# We need some fake seismic time series: we'll use this
 def create_data(n_samples, n_features, corr_length=4, normalize=True):
     """Create some fake timeseries data"""
     X = np.random.random((n_samples, n_features))
@@ -14,11 +53,26 @@ def create_data(n_samples, n_features, corr_length=4, normalize=True):
         X /= norm[:, np.newaxis]
     return X
 
+#------------------------------------------------------------
+# Now the fun begins:
+
 # Create some fake data
 np.random.seed(0)
-X = create_data(2000, 100)
-klsh = KernelLSH(X, nbits=12, kernel=crosscorr_kernel, random_state=0)
+X = create_data(1000, 100)
+
+# Build the hash table
+print("Shape of data: N={0}, D={1}".format(*X.shape))
+print("Creating hash table over data (this can be slow, O[N D logD]):")
+with timeit():
+    klsh = KernelLSH(X, nbits=20, kernel=crosscorr_kernel, random_state=0)
+print("")
 
 # Do some queries
-for i, nbrs in enumerate(klsh.query_top_k(X[:5], 5)):
-    print("{0} {1}".format(i, nbrs))
+print("Querying neighbors of first few points "
+      "(this is fast; O[D logD] per query):")
+with timeit():
+    nbrs = klsh.query_top_k(X[:5], 5)
+print("")
+
+for i, n in enumerate(nbrs):
+    print(i, n)
