@@ -117,6 +117,56 @@ def pairwise_correlate(X, Y, mode='full', fast=True,
     return M
 
 
-def crosscorr_kernel(X, Y, lambda_=100):
-    M = pairwise_correlate(X, Y)
-    return np.sum(M ** lambda_, -1)
+def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
+    """Cross-correlation kernel between X and Y
+
+    Parameters
+    ----------
+    X : array_like
+        shape = [Nx, n_features]
+    Y : array_like
+        shape = [Ny, n_features]
+    batch_size : array_like
+        perform computation in batches of this size.
+
+    Returns
+    -------
+    M : np.ndarray
+        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
+    """
+    X = np.asarray(X)
+    Y = np.asarray(Y)
+
+    assert X.ndim == 2
+    assert Y.ndim == 2
+
+    if batch_size is None:
+        M = pairwise_correlate(X, Y)
+        return np.sum(M ** lambda_, -1)
+    
+    result = np.zeros((X.shape[0], Y.shape[0]))
+
+    Xfft, Yfft, fft_info = precompute_fft(X, Y)
+
+    if Y.shape[0] < batch_size:
+        batchsize = [batch_size // Y.shape[0], Y.shape[0]]
+    elif X.shape[0] < batch_size:
+        batchsize = [X.shape[0], batch_size // X.shape[0]]
+    else:
+        batchsize = 2 * [int(np.sqrt(batch_size))]
+
+    nbatches = [1 + (X.shape[0] - 1) // batchsize[0],
+                1 + (Y.shape[0] - 1) // batchsize[1]]
+
+    for i in range(nbatches[0]):
+        sliceX = slice(i * batchsize[0], (i + 1) * batchsize[0])
+        for j in range(nbatches[1]):
+            print(i, j)
+            sliceY = slice(j * batchsize[1], (j + 1) * batchsize[1])
+            corr = pairwise_correlate(Xfft[sliceX], Yfft[sliceY],
+                                      fft_precomputed=True, fft_info=fft_info)
+            result[sliceX, sliceY] = np.sum(corr ** lambda_, -1)
+    return result
+        
+        
+    
