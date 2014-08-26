@@ -16,9 +16,9 @@ def create_data(n_samples, n_features, corr_length=4, normalize=True):
 
 # Create some fake data
 np.random.seed(0)
-X = create_data(1000, 100)
+X = create_data(2000, 100)
 klsh = KernelLSH(X, nbits=12, kernel=crosscorr_kernel, random_state=0)
 
 # Do some queries
-for i in range(5):
-    print i, klsh.query(X[i])
+for i, nbrs in enumerate(klsh.query_top_k(X[:5], 5)):
+    print("{0} {1}".format(i, nbrs))

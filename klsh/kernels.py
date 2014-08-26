@@ -161,7 +161,6 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
     for i in range(nbatches[0]):
         sliceX = slice(i * batchsize[0], (i + 1) * batchsize[0])
         for j in range(nbatches[1]):
-            print(i, j)
             sliceY = slice(j * batchsize[1], (j + 1) * batchsize[1])
             corr = pairwise_correlate(Xfft[sliceX], Yfft[sliceY],
                                       fft_precomputed=True, fft_info=fft_info)
