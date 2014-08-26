@@ -14,6 +14,6 @@ Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=0.1,
 klsh = KernelLSH(Xtrain, nbits=8, kernel='rbf', random_state=42)
 
 
-print "Labels on results for 8-bit hash bins of iris data:"
-for i, nbrs in enumerate(klsh.query(Xtest)):
-    print ytest[i], ytrain[nbrs]
+print("Labels on results for 8-bit hash bins of iris data:")
+for i, nbrs in enumerate(klsh.query_top_k(Xtest, 10)):
+    print(ytest[i], ytrain[nbrs])

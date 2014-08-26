@@ -1,8 +1,11 @@
 import collections
+import itertools
 
 import numpy as np
 from sklearn.utils import check_random_state
 from sklearn.metrics import pairwise, pairwise_kernels
+
+from .utils import hamming_hashes
 
 
 class KernelLSH(object):
@@ -32,19 +35,30 @@ class KernelLSH(object):
     This follows the algorithm in Kulis & Grauman (2009)
     """
     def __init__(self, sample, nbits=10, kernel="linear",
-                 subspace_size=300, t=None, random_state=None):
+                 subspace_size=300, t=None, random_state=None,
+                 kernel_kwds=None):
         self.rng = check_random_state(random_state)
 
         # set the kernel to be used
         if callable(kernel):
-            self.kernelfunc = kernel
+            self._kernelfunc = kernel
         elif kernel in pairwise.PAIRWISE_KERNEL_FUNCTIONS:
-            self.kernelfunc = pairwise.PAIRWISE_KERNEL_FUNCTIONS[kernel]
+            self._kernelfunc = pairwise.PAIRWISE_KERNEL_FUNCTIONS[kernel]
         else:
             raise ValueError("Kernel {0} not recognized".format(kernel))
 
+        if kernel_kwds is None:
+            self.kernel_kwds = {}
+        else:
+            self.kernel_kwds = kernel_kwds
+
         self.sample_ = np.asarray(sample)
-        self._build_hash_table(nbits, subspace_size, t)
+        self.nbits_ = nbits
+        self._build_hash_table(subspace_size, t)
+
+    def kernelfunc(self, X, Y):
+        """Evaluate the kernel. This can be overloaded by subclasses"""
+        return self._kernelfunc(X, Y, **self.kernel_kwds)
 
     def _kernel_matrix(self, X):
         """Compute the kernel matrix between X and the subspace"""
@@ -54,7 +68,8 @@ class KernelLSH(object):
         K += self.Kmean_
         return K        
         
-    def _build_hash_table(self, nbits, p, t):
+    def _build_hash_table(self, p, t):
+        nbits = self.nbits_
         p = min(p, self.sample_.shape[0])
 
         if t is None:
@@ -93,12 +108,54 @@ class KernelLSH(object):
         
     def compute_hash(self, X):
         X = np.atleast_2d(X)
+        assert X.ndim == 2
         K = self._kernel_matrix(X)
         bits = (np.dot(K, self.w_) > 0)
         vals = 2 << np.arange(bits.shape[-1])
         return np.dot(bits, vals)
-        return self._hash_from_kernel(kappa)    
+        return self._hash_from_kernel(kappa)
     
     def query(self, X):
+        """Query for all matching hashes
+
+        Parameters
+        ----------
+        X : array_like
+            two-dimensional array of query points
+        
+        Returns
+        -------
+        indices : list of lists
+            a list of lists of indices of overlapping hashes
+        """
         xhash = self.compute_hash(X)
         return [self.hash_dict_[h] for h in xhash]
+
+    def query_top_k(self, X, k):
+        """
+        Query the top k points of each point in X.
+
+        This cycles through possible hashes in order of Hamming distance,
+        and returns k values matching each hash.
+
+        Parameters
+        ----------
+        X : array_like
+            two-dimensional array of query points
+        
+        Returns
+        -------
+        indices : array
+            2D array of indices, shape = [X.shape[0], k]
+        """
+        # TODO: add ability to randomize results
+        Xhashes = self.compute_hash(X)
+        res = np.full((len(Xhashes), k), -1, dtype=np.intp)
+
+        for i, Xhash in enumerate(Xhashes):
+            hash_it = hamming_hashes(Xhash, self.nbits_)
+            item_it = itertools.chain.from_iterable(self.hash_dict_[h]
+                                                     for h in hash_it)
+            vals = list(itertools.islice(item_it, k))
+            res[i, :len(vals)] = vals
+        return res

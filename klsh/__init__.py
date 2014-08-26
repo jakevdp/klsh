@@ -1,2 +1,2 @@
 """Kernelized Locality Sensitive Hashing"""
-from klsh import KernelLSH
+from .klsh import KernelLSH
