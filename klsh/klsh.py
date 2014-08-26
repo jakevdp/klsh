@@ -33,9 +33,6 @@ class KernelLSH(object):
     """
     def __init__(self, sample, nbits=10, kernel="linear",
                  subspace_size=300, t=None, random_state=None):
-        if t is None:
-            t = min(subspace_size // 4, 30)
-
         self.rng = check_random_state(random_state)
 
         # set the kernel to be used
@@ -47,7 +44,7 @@ class KernelLSH(object):
             raise ValueError("Kernel {0} not recognized".format(kernel))
 
         self.sample_ = np.asarray(sample)
-        self._build_hash_table(subspace_size, t, nbits)
+        self._build_hash_table(nbits, subspace_size, t)
 
     def _kernel_matrix(self, X):
         """Compute the kernel matrix between X and the subspace"""
@@ -57,9 +54,13 @@ class KernelLSH(object):
         K += self.Kmean_
         return K        
         
-    def _build_hash_table(self, p, t, nbits):
+    def _build_hash_table(self, nbits, p, t):
+        p = min(p, self.sample_.shape[0])
+
+        if t is None:
+            t = min(p // 4, 30)
+
         # Choose random subsample of p elements
-        p = min(p, self.sample_.shape[0])  
         i = self.rng.choice(self.sample_.shape[0], p, replace=False)
         self.subsample_ = self.sample_[i]
 

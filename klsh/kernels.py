@@ -69,4 +69,4 @@ def pairwise_correlate(X, Y, mode='full', fast=True):
 
 def crosscorr_kernel(X, Y, lambda_=100):
     M = pairwise_correlate(X, Y)
-    return np.exp(np.logaddexp.reduce(lambda_ * M, -1))
+    return np.sum(M ** lambda_, -1)
