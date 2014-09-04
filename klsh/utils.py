@@ -47,7 +47,7 @@ def packbits_axis(X, axis=-1):
     if axis not in (-1, X.ndim - 1):
         X = np.rollaxis(X, axis).transpose(list(range(1, X.ndim)) + [0])
 
-    # make sure we have a C-ordered buffer
+    # make sure we have a C-ordered contiguous buffer
     X = np.asarray(X, order='C')
     bits = np.packbits(X, -1)
 
@@ -99,6 +99,7 @@ def hamming_cdist(x, y=None, use_broadcasting=False):
         made of some number of unsigned integers.
     """
     # TODO: make work with types other than uint8? maybe not needed.
+    x = np.atleast_1d(x)
     assert x.ndim == 1
 
     if len(x.dtype) > 0:
@@ -111,6 +112,7 @@ def hamming_cdist(x, y=None, use_broadcasting=False):
     if y is None:
         y = x
     else:
+        y = np.atleast_1d(y)
         assert y.ndim == 1
         assert y.dtype == x.dtype
 
