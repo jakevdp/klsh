@@ -23,7 +23,7 @@ def test_pairwise_correlate(random_seed=0):
     for mode in ['full']:
         for cplx in [True, False]:
             yield test_correlate, mode, cplx
-        
+
 
 def test_pairwise_precomputed(random_seed=0):
     rng = np.random.RandomState(random_seed)

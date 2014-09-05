@@ -1,6 +1,8 @@
 import numpy as np
 from numpy.testing import assert_allclose
-from ..utils import hamming_hashes, packbits_axis, unpackbits_axis, hamming_cdist
+from ..utils import (hamming_hashes, packbits_axis,
+                     unpackbits_axis, hamming_cdist)
+
 
 def test_hamming_hashes():
     assert_allclose(list(hamming_hashes(0, 3)),
@@ -23,7 +25,7 @@ def test_hamming_cdist():
 
     for N in [50, 100, 200]:
         for nbits in [4, 8, 12]:
-            yield check_hamming_cdist, N, nbits    
+            yield check_hamming_cdist, N, nbits
 
 
 def test_packbits_axis():

@@ -53,4 +53,3 @@ def test_Hamming_ANN(seed=0):
 
     for epsilon in (0.0, 0.1, 0.2, 0.3):
         yield check_hamming_ann, epsilon, rng
-    
