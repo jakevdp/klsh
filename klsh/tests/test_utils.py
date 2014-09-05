@@ -34,7 +34,6 @@ def test_packbits_axis():
     def check_round_trip(axis):
         x = packbits_axis(X, axis)
         X2 = unpackbits_axis(x, axis, X.shape[axis])
-        print X.shape, X2.shape
         assert_allclose(X, X2)
 
     for axis in range(3):
