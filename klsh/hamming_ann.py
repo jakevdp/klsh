@@ -87,7 +87,7 @@ class HammingBallTree(HammingSearchBase):
             dist, ind = self._tree.query(X, k, return_distance=True)
             return ind, (dist * X.shape[1]).astype(int)
         else:
-            return self._tree.query(X, k)
+            return self._tree.query(X, k, return_distance=False)
 
 
 class HammingANN(HammingSearchBase):

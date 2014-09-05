@@ -1,9 +1,10 @@
 import itertools
+import contextlib
+import time
 import numbers
 import numpy as np
 
 
-import contextlib,time
 @contextlib.contextmanager
 def timeit(fmt=None):
     if fmt is None:

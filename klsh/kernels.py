@@ -6,19 +6,18 @@ def pairwise_correlate_slow(X, Y, mode='full'):
     X, Y = map(np.atleast_2d, (X, Y))
     assert X.ndim == 2
     assert Y.ndim == 2
-    
+
     Y = Y[:, ::-1]
 
-    # Kept for testing purposes
     first_result = signal.fftconvolve(X[0], Y[0], mode)
     M = np.zeros((X.shape[0], Y.shape[0], len(first_result)),
                  dtype=first_result.dtype)
-    
+
     for i in range(X.shape[0]):
         for j in range(Y.shape[0]):
             M[i, j] = signal.fftconvolve(X[i], Y[j], mode)
     return M
-    
+
 
 def precompute_fft(X, Y):
     """Pre-compute the FFT of X and Y for use in pairwise_correlate"""
@@ -63,13 +62,13 @@ def pairwise_correlate(X, Y, mode='full', fast=True,
         if True (default) use a fast broadcasting-based algorithm.
         This is mainly for unit-testing purposes.
     fft_precomputed : bool
-        if True, then X and Y actually contain the pre-computed FFT 
+        if True, then X and Y actually contain the pre-computed FFT
         of X and Y. Default is False. Cannot be used with fast=False.
         FFTs can be precomputed with the precompute_fft() function.
         If True, then complex_result must be specified.
     fft_info : bool
         Required if fft_precomputed==True.
-        
+
     Returns
     -------
     out: array
@@ -143,7 +142,7 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
     if batch_size is None:
         M = pairwise_correlate(X, Y)
         return np.sum(M ** lambda_, -1)
-    
+
     result = np.zeros((X.shape[0], Y.shape[0]))
 
     Xfft, Yfft, fft_info = precompute_fft(X, Y)
@@ -166,6 +165,3 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
                                       fft_precomputed=True, fft_info=fft_info)
             result[sliceX, sliceY] = np.sum(corr ** lambda_, -1)
     return result
-        
-        
-    
