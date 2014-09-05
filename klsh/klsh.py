@@ -19,6 +19,9 @@ class KernelLSH(object):
     nbits : integer (default=32)
         Number of bits in the hash. More bits means fewer matches for any
         given input. Multiples of 8 are most memory-efficient.
+    epsilon : float (default=0.5)
+        controls the tradeoff between speed & accuracy.
+        O[N^(1/(1+eps))] kernel evaluations are done per query point.
     kernel : string or callable (default="linear")
         The kernel to use. See sklearn.metrics.pairwise
     subspace_size : integer (default=300)
@@ -34,12 +37,13 @@ class KernelLSH(object):
     -----
     This follows the algorithm in Kulis & Grauman (2009)
     """
-    def __init__(self, nbits=32, kernel="linear",
+    def __init__(self, nbits=32, epsilon=0.5, kernel="linear",
                  subspace_size=300, sample_size=None,
                  index_method="balltree", random_state=None,
                  kernel_kwds=None, index_kwds=None):
         self.random_state = random_state
         self.nbits = nbits
+        self.epsilon=epsilon
         self.subspace_size = subspace_size
         self.sample_size = sample_size
         self.kernel_evaluations = 0
@@ -151,9 +155,11 @@ class KernelLSH(object):
         else:
             return bits
 
-    def query_brute(self, X, k):
+    def query_brute(self, X, k, return_similarity=False):
         if not self.fitted:
             raise ValueError("Must call fit() before a query")
+        if return_similarity:
+            raise NotImplementedError("return_similarity=True")
         K = self.kernelfunc(X, self._X_fit)
         return np.argsort(K, 1)[:, :-k-1:-1]
 
@@ -167,7 +173,8 @@ class KernelLSH(object):
         k : int
             number of approximate neighbors to query
         khash : int (optional)
-            number of hash neighbors to consider. Default is min(20, 4 * k)
+            number of hash neighbors to consider. Default value is
+            int(N ** (1 / (1 + self.epsilon)))
 
         Returns
         -------
@@ -182,7 +189,10 @@ class KernelLSH(object):
         X = np.asarray(X)
         Xbits = self.compute_hash(X)
         if khash is None:
-            khash = min(20, 4 * k)
+            khash = int(self._X_fit.shape[0] ** (1. / (1 + self.epsilon)))
+
+        # need khash to be more than k
+        khash = max(khash, k)
 
         ind_to_check = self._hash_index.query(Xbits, khash)
         ind = np.zeros((X.shape[0], k), dtype=int)

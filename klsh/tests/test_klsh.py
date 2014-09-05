@@ -9,13 +9,13 @@ def test_linear_klsh(seed=0):
     X = rng.randn(1000, 10)
     Y = rng.randn(1000, 10)
 
-    expected = {16: 0.1,
-                32: 0.2,
-                64: 0.3,
-                128: 0.4}
+    expected = {16: 0.70,
+                32: 0.80,
+                64: 0.90,
+                128: 0.95}
 
-    def check_klsh(nbits):
-        klsh = KernelLSH(nbits=nbits).fit(X)
+    def check_klsh(nbits, epsilon=0.5):
+        klsh = KernelLSH(nbits=nbits, epsilon=epsilon, random_state=rng).fit(X)
         i_approx = klsh.query(Y, 1)
         i_true = klsh.query_brute(Y, 1)
 
