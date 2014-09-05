@@ -1,10 +1,8 @@
-pyklsh
-======
+klsh
+====
 
-Python implementation of Kernelized Locality Sensitive Hashing
+Python implementation of Kernelized Locality Sensitive Hashing.
+
+This repository is a work in progress.
 
 The method is described in [Kulis & Grauman 2009](http://web.cse.ohio-state.edu/~kulis/klsh/klsh.htm)
-
-A short example on iris data can be found in ``demo.py``
-
-Another example on seismic time series can be found in ``test_seismic.py``
