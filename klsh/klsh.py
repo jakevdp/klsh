@@ -1,11 +1,18 @@
-import collections
-import itertools
-
 import numpy as np
-from sklearn.utils import check_random_state
 from sklearn.metrics import pairwise, pairwise_kernels
 
-from .utils import hamming_hashes
+from .utils import hamming_cdist, create_rng, packbits_axis
+from .hamming_ann import HammingBrute, HammingANN
+
+
+
+class HashTable(object):
+    def __init__(self):
+        self._table = collections.defaultdict(list)
+    def __getitem__(self, key):
+        return self._table[tuple(key)]
+    def __setitem__(self, key, val):
+        self._table[tuple(key)] = val
 
 
 class KernelLSH(object):
@@ -35,9 +42,10 @@ class KernelLSH(object):
     This follows the algorithm in Kulis & Grauman (2009)
     """
     def __init__(self, sample, nbits=10, kernel="linear",
-                 subspace_size=300, t=None, random_state=None,
-                 kernel_kwds=None):
-        self.rng = check_random_state(random_state)
+                 subspace_size=300, t=None, epsilon=0.3,
+                 random_state=None, kernel_kwds=None):
+        self.rng = create_rng(random_state)
+        self.epsilon = epsilon
 
         # set the kernel to be used
         if callable(kernel):
@@ -99,63 +107,53 @@ class KernelLSH(object):
         e_s[i, np.arange(nbits)] = 1
         self.w_ = np.dot(K_half, e_s)
 
-        self.hash_table_ = self.compute_hash(self.sample_)
-
-        # build hash dictionary
-        self.hash_dict_ = collections.defaultdict(list)
-        for i, h in enumerate(self.hash_table_):
-            self.hash_dict_[h].append(i)
+        self.hash_table_ = self.compute_hash(self.sample_, False)
+        #self.hash_index_ = HammingBrute(self.hash_table_)
+        self.hash_index_ = HammingANN(self.hash_table_,
+                                      epsilon=self.epsilon,
+                                      random_state=self.rng)
         
-    def compute_hash(self, X):
+    def compute_hash(self, X, pack=True):
         X = np.atleast_2d(X)
         assert X.ndim == 2
         K = self._kernel_matrix(X)
+
         bits = (np.dot(K, self.w_) > 0)
-        vals = 2 << np.arange(bits.shape[-1])
-        return np.dot(bits, vals)
-        return self._hash_from_kernel(kappa)
+        if pack:
+            return packbits_axis(bits)
+        else:
+            return bits
+
+    def query_brute(self, X, k):
+        K = self.kernelfunc(X, self.sample_)
+        return np.argsort(K, 1)[:, :-k-1:-1]
+        
     
-    def query(self, X):
+    def query(self, X, k, khash=None):
         """Query for all matching hashes
 
         Parameters
         ----------
         X : array_like
             two-dimensional array of query points
+        k : int
+            number of approximate neighbors to query
         
         Returns
         -------
         indices : list of lists
             a list of lists of indices of overlapping hashes
         """
-        xhash = self.compute_hash(X)
-        return [self.hash_dict_[h] for h in xhash]
+        Xbits = self.compute_hash(X, pack=False)
+        if khash is None:
+            khash = 4 * k
 
-    def query_top_k(self, X, k):
-        """
-        Query the top k points of each point in X.
-
-        This cycles through possible hashes in order of Hamming distance,
-        and returns k values matching each hash.
-
-        Parameters
-        ----------
-        X : array_like
-            two-dimensional array of query points
+        ind_to_check = self.hash_index_.query(Xbits, khash)
         
-        Returns
-        -------
-        indices : array
-            2D array of indices, shape = [X.shape[0], k]
-        """
-        # TODO: add ability to randomize results
-        Xhashes = self.compute_hash(X)
-        res = np.full((len(Xhashes), k), -1, dtype=np.intp)
+        ind = np.zeros((X.shape[0], k), dtype=int)
 
-        for i, Xhash in enumerate(Xhashes):
-            hash_it = hamming_hashes(Xhash, self.nbits_)
-            item_it = itertools.chain.from_iterable(self.hash_dict_[h]
-                                                     for h in hash_it)
-            vals = list(itertools.islice(item_it, k))
-            res[i, :len(vals)] = vals
-        return res
+        for i in range(X.shape[0]):
+            kernel = self.kernelfunc(X[i:i+1], self.sample_[ind_to_check[i]])
+            ind[i] = ind_to_check[i, np.argsort(kernel[0])[:-k-1:-1]]
+        return ind
+        

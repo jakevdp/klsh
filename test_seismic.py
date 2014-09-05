@@ -30,16 +30,7 @@ from scipy import ndimage, fftpack, signal
 
 from klsh import KernelLSH
 from klsh.kernels import crosscorr_kernel
-
-#------------------------------------------------------------
-# This is a nice little utility routine to time some code
-from contextlib import contextmanager
-from time import time
-@contextmanager
-def timeit():
-    t0 = time()
-    yield
-    print("   Finished in {0:2g} sec".format(time() - t0))
+from klsh.utils import timeit
 
 
 #------------------------------------------------------------
@@ -64,15 +55,13 @@ X = create_data(1000, 100)
 print("Shape of data: N={0}, D={1}".format(*X.shape))
 print("Creating hash table over data (this can be slow, O[N D logD]):")
 with timeit():
-    klsh = KernelLSH(X, nbits=20, kernel=crosscorr_kernel, random_state=0)
+    klsh = KernelLSH(X, nbits=40, kernel=crosscorr_kernel, random_state=0)
 print("")
 
 # Do some queries
-print("Querying neighbors of first few points "
+print("Querying neighbors of first 100 points "
       "(this is fast; O[D logD] per query):")
 with timeit():
-    nbrs = klsh.query_top_k(X[:5], 5)
+    nbrs = klsh.query(X[:100], 5)
 print("")
-
-for i, n in enumerate(nbrs):
-    print(i, n)
+print(nbrs[:10])

@@ -1,5 +1,17 @@
 import itertools
+import numbers
 import numpy as np
+
+
+import contextlib,time
+@contextlib.contextmanager
+def timeit(fmt=None):
+    if fmt is None:
+        fmt = "{0:.2g} sec"
+    t0 = time.time()
+    yield
+    t1 = time.time()
+    print(fmt.format(t1 - t0))
 
 
 def create_rng(seed):
