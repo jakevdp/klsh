@@ -10,27 +10,16 @@ HAMMING_METHODS = {"brute": HammingBrute,
                    "balltree": HammingBallTree}
 
 
-class HashTable(object):
-    def __init__(self):
-        self._table = collections.defaultdict(list)
-
-    def __getitem__(self, key):
-        return self._table[tuple(key)]
-
-    def __setitem__(self, key, val):
-        self._table[tuple(key)] = val
-
-
 class KernelLSH(object):
     """
     Kernelized Locality Sensitive Hashing
 
     Parameters
     ----------
-    nbits : integer (default=16)
+    nbits : integer (default=32)
         Number of bits in the hash. More bits means fewer matches for any
         given input. Multiples of 8 are most memory-efficient.
-    kernel : string or callable
+    kernel : string or callable (default="linear")
         The kernel to use. See sklearn.metrics.pairwise
     subspace_size : integer (default=300)
         The amount of data to use when approximating the data distribution in
@@ -45,7 +34,7 @@ class KernelLSH(object):
     -----
     This follows the algorithm in Kulis & Grauman (2009)
     """
-    def __init__(self, nbits=10, kernel="linear",
+    def __init__(self, nbits=32, kernel="linear",
                  subspace_size=300, sample_size=None,
                  index_method="balltree", random_state=None,
                  kernel_kwds=None, index_kwds=None):
@@ -54,6 +43,7 @@ class KernelLSH(object):
         self.subspace_size = subspace_size
         self.sample_size = sample_size
         self.kernel_evaluations = 0
+        self.fitted = False
 
         self._check_kernel(kernel, kernel_kwds)
         self._check_index_method(index_method, index_kwds)
@@ -99,6 +89,8 @@ class KernelLSH(object):
 
         self._X_fit = np.asarray(X)
         self._build_hash_table(self.subspace_size, self.sample_size)
+
+        self.fitted = True
         return self
 
     def kernelfunc(self, X, Y):
@@ -160,6 +152,8 @@ class KernelLSH(object):
             return bits
 
     def query_brute(self, X, k):
+        if not self.fitted:
+            raise ValueError("Must call fit() before a query")
         K = self.kernelfunc(X, self._X_fit)
         return np.argsort(K, 1)[:, :-k-1:-1]
 
@@ -173,20 +167,22 @@ class KernelLSH(object):
         k : int
             number of approximate neighbors to query
         khash : int (optional)
-            number of hash neighbors to consider. Default is 4 * k
+            number of hash neighbors to consider. Default is min(20, 4 * k)
 
         Returns
         -------
         indices : list of lists
             a list of lists of indices of overlapping hashes
         """
+        if not self.fitted:
+            raise ValueError("Must call fit() before a query")
         if return_similarity:
             raise NotImplementedError("return_similarity=True")
 
         X = np.asarray(X)
         Xbits = self.compute_hash(X)
         if khash is None:
-            khash = 4 * k
+            khash = min(20, 4 * k)
 
         ind_to_check = self._hash_index.query(Xbits, khash)
         ind = np.zeros((X.shape[0], k), dtype=int)
