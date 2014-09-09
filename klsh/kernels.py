@@ -1,6 +1,8 @@
 import numpy as np
 from scipy import fftpack, signal
 
+__all__ = ["crosscorr_kernel"]
+
 
 def pairwise_correlate_slow(X, Y, mode='full'):
     X, Y = map(np.atleast_2d, (X, Y))
