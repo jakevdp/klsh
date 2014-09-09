@@ -1,7 +1,8 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from ..kernels import pairwise_correlate, precompute_fft, crosscorr_kernel
+from ..kernels import (pairwise_correlate, precompute_fft,
+                       crosscorr_kernel, crosscorr_similarity)
 
 
 def test_pairwise_correlate(random_seed=0):
@@ -53,6 +54,17 @@ def test_crosscorr_kernel_batchsize(random_seed=0):
     X = rng.rand(100, 128)
 
     results = [crosscorr_kernel(X, X, batch_size=batch_size)
+               for batch_size in [None, 50, 2500, 3000]]
+
+    for r1, r2 in zip(results, results[1:]):
+        assert_allclose(r1, r2)
+
+
+def test_crosscorr_similarity_batchsize(random_seed=0):
+    rng = np.random.RandomState(random_seed)
+    X = rng.rand(100, 128)
+
+    results = [crosscorr_similarity(X, X, batch_size=batch_size)
                for batch_size in [None, 50, 2500, 3000]]
 
     for r1, r2 in zip(results, results[1:]):

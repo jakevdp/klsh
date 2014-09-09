@@ -118,8 +118,8 @@ def pairwise_correlate(X, Y, mode='full', fast=True,
     return M
 
 
-def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
-    """Cross-correlation kernel between X and Y
+def _batch_crosscorr(X, Y, batch_size, reduce_func):
+    """Helper routine for batch fft-based cross-correlation.
 
     Parameters
     ----------
@@ -127,13 +127,13 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
         shape = [Nx, n_features]
     Y : array_like
         shape = [Ny, n_features]
-    batch_size : array_like
+    batch_size : integer
         perform computation in batches of this size.
-
-    Returns
-    -------
-    M : np.ndarray
-        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
+    reduce_func: function
+        a function which will reduce the input along its last axis.
+        Input is the result of pairwise_correlate() on the batch, and is
+        of shape (n, m, p). reduce_func should take this as input and return
+        a suitable array of shape (n, m).
     """
     X = np.asarray(X)
     Y = np.asarray(Y)
@@ -141,10 +141,14 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
     assert X.ndim == 2
     assert Y.ndim == 2
 
-    if batch_size is None:
-        M = pairwise_correlate(X, Y)
-        return np.sum(M ** lambda_, -1)
+    total_size = X.shape[0] * Y.shape[0]
 
+    # if batches are unnecessary, do the calculation in one step
+    if batch_size is None or total_size <= batch_size:
+        M = pairwise_correlate(X, Y)
+        return reduce_func(M)
+
+    # otherwise, we divide the computation into batches
     result = np.zeros((X.shape[0], Y.shape[0]))
 
     Xfft, Yfft, fft_info = precompute_fft(X, Y)
@@ -165,5 +169,49 @@ def crosscorr_kernel(X, Y, lambda_=100, batch_size=10000):
             sliceY = slice(j * batchsize[1], (j + 1) * batchsize[1])
             corr = pairwise_correlate(Xfft[sliceX], Yfft[sliceY],
                                       fft_precomputed=True, fft_info=fft_info)
-            result[sliceX, sliceY] = np.sum(corr ** lambda_, -1)
+            result[sliceX, sliceY] = reduce_func(corr)
     return result
+
+
+def crosscorr_kernel(X, Y, lambda_=10, batch_size=10000):
+    """Cross-correlation kernel between X and Y
+
+    Parameters
+    ----------
+    X : array_like
+        shape = [Nx, n_features]
+    Y : array_like
+        shape = [Ny, n_features]
+    lambda_ : float (default=10)
+        the exponential free parameter in the kernel.
+    batch_size : integer (default=10000)
+        perform computation in batches of this size.
+
+    Returns
+    -------
+    M : np.ndarray
+        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
+    """
+    reduce_func = lambda corr, lambda_=lambda_: np.exp(lambda_ * corr).sum(-1)
+    return _batch_crosscorr(X, Y, batch_size, reduce_func)
+
+
+def crosscorr_similarity(X, Y, batch_size=10000):
+    """Cross-correlation similarity between X and Y
+
+    Parameters
+    ----------
+    X : array_like
+        shape = [Nx, n_features]
+    Y : array_like
+        shape = [Ny, n_features]
+    batch_size : integer (default=10000)
+        perform computation in batches of this size.
+
+    Returns
+    -------
+    M : np.ndarray
+        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
+    """
+    reduce_func = lambda corr: corr.max(-1)
+    return _batch_crosscorr(X, Y, batch_size, reduce_func)
