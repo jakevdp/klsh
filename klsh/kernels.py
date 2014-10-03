@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import fftpack, signal
 
-__all__ = ["crosscorr_kernel"]
+__all__ = ["crosscorr_kernel", "crosscorr_similarity"]
 
 
 def pairwise_correlate_slow(X, Y, mode='full'):
@@ -118,7 +118,8 @@ def pairwise_correlate(X, Y, mode='full', fast=True,
     return M
 
 
-def _batch_crosscorr(X, Y, batch_size, reduce_func):
+def _batch_crosscorr(X, Y, batch_size, reduce_func,
+                     fft_precomputed=False, fft_info=None):
     """Helper routine for batch fft-based cross-correlation.
 
     Parameters
@@ -141,17 +142,21 @@ def _batch_crosscorr(X, Y, batch_size, reduce_func):
     assert X.ndim == 2
     assert Y.ndim == 2
 
-    total_size = X.shape[0] * Y.shape[0]
+    # precompute fft if necessary
+    if fft_precomputed:
+        Xfft, Yfft = X, Y
+        assert fft_info is not None
+    else:
+        Xfft, Yfft, fft_info = precompute_fft(X, Y)
 
     # if batches are unnecessary, do the calculation in one step
-    if batch_size is None or total_size <= batch_size:
-        M = pairwise_correlate(X, Y)
+    if batch_size is None or X.shape[0] * Y.shape[0] <= batch_size:
+        M = pairwise_correlate(Xfft, Yfft, fft_info=fft_info,
+                               fft_precomputed=True)
         return reduce_func(M)
 
     # otherwise, we divide the computation into batches
     result = np.zeros((X.shape[0], Y.shape[0]))
-
-    Xfft, Yfft, fft_info = precompute_fft(X, Y)
 
     if Y.shape[0] < batch_size:
         batchsize = [batch_size // Y.shape[0], Y.shape[0]]
@@ -171,6 +176,27 @@ def _batch_crosscorr(X, Y, batch_size, reduce_func):
                                       fft_precomputed=True, fft_info=fft_info)
             result[sliceX, sliceY] = reduce_func(corr)
     return result
+
+
+def crosscorr_similarity(X, Y, batch_size=10000):
+    """Cross-correlation similarity between X and Y
+
+    Parameters
+    ----------
+    X : array_like
+        shape = [Nx, n_features]
+    Y : array_like
+        shape = [Ny, n_features]
+    batch_size : integer (default=10000)
+        perform computation in batches of this size.
+
+    Returns
+    -------
+    M : np.ndarray
+        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
+    """
+    reduce_func = lambda corr: corr.max(-1)
+    return _batch_crosscorr(X, Y, batch_size, reduce_func)
 
 
 def crosscorr_kernel(X, Y, lambda_=10, batch_size=10000):
@@ -196,22 +222,9 @@ def crosscorr_kernel(X, Y, lambda_=10, batch_size=10000):
     return _batch_crosscorr(X, Y, batch_size, reduce_func)
 
 
-def crosscorr_similarity(X, Y, batch_size=10000):
-    """Cross-correlation similarity between X and Y
-
-    Parameters
-    ----------
-    X : array_like
-        shape = [Nx, n_features]
-    Y : array_like
-        shape = [Ny, n_features]
-    batch_size : integer (default=10000)
-        perform computation in batches of this size.
-
-    Returns
-    -------
-    M : np.ndarray
-        the pairwise cross-correlation kernel between X and Y, shape [Nx, Ny]
-    """
-    reduce_func = lambda corr: corr.max(-1)
-    return _batch_crosscorr(X, Y, batch_size, reduce_func)
+def crosscorr_metric(X, Y, batch_size=10000):
+    # This could be done WAY more efficiently, especially the XX & YY terms
+    XX = crosscorr_similarity(X, X, batch_size)
+    YY = crosscorr_similarity(Y, Y, batch_size)
+    XY = crosscorr_similarity(X, Y, batch_size)
+    return XX.diagonal()[:, None] + YY.diagonal() - 2 * XY
